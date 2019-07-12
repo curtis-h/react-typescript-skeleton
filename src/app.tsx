@@ -1,98 +1,35 @@
-import React, { StatelessComponent, useContext } from "react";
+import React, { StatelessComponent } from "react";
+import { AppState } from "./framework/types";
+import { DataStore } from "./stores/datastore";
+import { reducer } from "./framework/actions/reducer";
+import { RouterContainer } from "./containers/routerContainer";
 
-interface AppState {
-  user: User;
-}
 
-interface User {
-  name: string;
-}
+const initialState: AppState = {} as any;
+const stateStore = new DataStore(/* initialState */);
+const AppContext = React.createContext(stateStore);
+export const useAppState = () => React.useContext(AppContext);
 
-class Store<T> {
-  constructor(
-    public readonly data: T,
-    protected readonly setData: (data: T) => void
-  ) {}
+export const App: StatelessComponent = () => {
+  const [state, dispatch] = React.useReducer(reducer, initialState);
+  stateStore.bind(state, dispatch);
 
-  protected update(setter: (data: T) => void) {
-    const newData = Object.assign({}, this.data);
-    setter(newData);
-    this.setData(newData);
-  }
-}
-
-class DataStore extends Store<AppState> {
-  public userStore: UserStore;
-
-  constructor(data: AppState, setData: (data: AppState) => void) {
-    super(data, setData);
-    this.userStore = new UserStore(data.user, u => this.update(x => x.user = u));
-  }
-}
-
-class UserStore extends Store<User> {
-  public login(user: User) {
-    this.setData(user);
-  }
-
-  public updateName(value: string) {
-    this.update(x => x.name = value);
-  }
-}
-
-const AppContext = React.createContext(new DataStore({} as any, () => {}));
-
-const LoginContainer: StatelessComponent = (props) => {
-  const state = useContext(AppContext);
-  const userStore = state.userStore;
-
-  if(!state.data.user) {
-    return (
-      <div onClick={() => userStore.login({ name: "test" })}>No User</div>
-    );
-  }
-
-  return (<div>{props.children}</div>);
+  return (
+    <AppContext.Provider value={stateStore}>
+      <RouterContainer />
+    </AppContext.Provider>
+  );
 }
 
 const A: StatelessComponent = (props) => {
-  const state = useContext(AppContext);
+  const state = useAppState();
   const userStore = state.userStore;
-  const user = state.data.user;
+  const user = userStore.data;
 
   return (
     <div onClick={() => userStore.updateName(user.name + "a")}>
       A : {user.name}
       {props.children}
     </div>
-  );
-}
-
-const B: StatelessComponent = (props) => {
-  const state = useContext(AppContext);
-  const userStore = state.userStore;
-  const user = state.data.user;
-
-  return (
-    <div onClick={() => userStore.updateName(user.name + "b")}>
-      B : {user.name}
-      {props.children}
-    </div>
-  );
-}
-
-export const App: StatelessComponent = () => {
-  const initialState: AppState = {} as any;
-  const [state, setState] = React.useState(initialState);
-  const stateStore = new DataStore(state, setState);
-
-  return (
-    <AppContext.Provider value={stateStore}>
-      <LoginContainer>
-        <A>
-          <B></B>
-        </A>
-      </LoginContainer>
-    </AppContext.Provider>
   );
 }
